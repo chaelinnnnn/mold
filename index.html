@@ -214,6 +214,7 @@ window.addEventListener('click',e=>{
 function clearState(){
   particles=[];threads=[];colonies=[];pulses=[];trails=[];network=[];
   stillTime=0;moved=false;frame=0;
+  cordAngle=0;cordX=W/2;cordY=H/2;cordInfection=0;
 }
 
 function createThread(x,y){
@@ -445,45 +446,64 @@ function drawAspergillus(){
   ctx.beginPath(); ctx.arc(mouse.x,mouse.y,14,0,Math.PI*2); ctx.fillStyle=cg; ctx.fill();
 }
 
+let cordAngle=0,cordX=W/2,cordY=H/2,cordInfection=0;
+
 function drawCordyceps(){
   ctx.fillStyle='rgba(0,0,0,0.055)'; ctx.fillRect(0,0,W,H);
   const dx=mouse.x-prevMouse.x,dy=mouse.y-prevMouse.y;
   const spd=Math.hypot(dx,dy);
   prevMouse={...mouse};
-  if(spd>1.5){
-    trails.push({x:mouse.x,y:mouse.y,r:0,maxR:18+Math.random()*14,alpha:.55,growing:true});
-    if(Math.random()<.06){
-      pulses.push({x:mouse.x,y:mouse.y,r:0,maxR:40,alpha:.35});
-      if(Math.random()<.12) playSFX('cord');
-    }
-    if(trails.length>300) trails.shift();
-    phaseEl.textContent='INFECTING';
-  } else {phaseEl.textContent='DORMANT';}
+
+  if(spd>1) cordInfection=Math.min(1,cordInfection+0.0008);
+  cordAngle+=(Math.random()-.5)*0.04;
+
+  if(spd>1){
+    const intA=Math.atan2(dy,dx);
+    const bx=Math.cos(intA)*(1-cordInfection)+Math.cos(cordAngle)*cordInfection;
+    const by=Math.sin(intA)*(1-cordInfection)+Math.sin(cordAngle)*cordInfection;
+    const actA=Math.atan2(by,bx);
+    cordX=Math.max(0,Math.min(W,cordX+Math.cos(actA)*spd*0.6));
+    cordY=Math.max(0,Math.min(H,cordY+Math.sin(actA)*spd*0.6));
+    trails.push({x:cordX,y:cordY,alpha:.6,r:0,maxR:14+Math.random()*10,growing:true});
+    if(trails.length>400) trails.shift();
+    if(Math.random()<.04) playSFX('cord');
+  }
+
+  if(cordInfection<0.2) phaseEl.textContent='DORMANT';
+  else if(cordInfection<0.6) phaseEl.textContent='INFILTRATING';
+  else phaseEl.textContent='CONTROLLED';
+
   for(let i=trails.length-1;i>=0;i--){
     const t=trails[i];
-    if(t.growing&&t.r<t.maxR) t.r+=0.6; else t.growing=false;
-    t.alpha=Math.max(0,t.alpha-0.0018);
+    if(t.growing&&t.r<t.maxR) t.r+=0.5; else t.growing=false;
+    t.alpha=Math.max(0,t.alpha-0.002);
     if(t.alpha<=0){trails.splice(i,1);continue;}
-    const prog=t.r/t.maxR;
     ctx.beginPath(); ctx.arc(t.x,t.y,t.r,0,Math.PI*2);
-    ctx.fillStyle=`rgba(${Math.round(180+prog*30)},${Math.round(80+prog*20)},40,${t.alpha*.25})`; ctx.fill();
-    ctx.beginPath(); ctx.arc(t.x,t.y,t.r,0,Math.PI*2);
-    ctx.strokeStyle=`rgba(${Math.round(180+prog*30)},${Math.round(80+prog*20)},40,${t.alpha*.5})`; ctx.lineWidth=.3; ctx.stroke();
+    ctx.fillStyle=`rgba(160,80,30,${t.alpha*0.3})`; ctx.fill();
+    ctx.strokeStyle=`rgba(200,110,50,${t.alpha*0.6})`; ctx.lineWidth=0.4; ctx.stroke();
   }
-  for(let i=pulses.length-1;i>=0;i--){
-    const p=pulses[i]; p.r+=2; p.alpha-=0.015;
-    if(p.alpha<=0){pulses.splice(i,1);continue;}
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-    ctx.strokeStyle=`rgba(200,100,60,${p.alpha})`; ctx.lineWidth=0.5; ctx.stroke();
+
+  if(spd>1&&cordInfection>0.05){
+    ctx.beginPath(); ctx.moveTo(mouse.x,mouse.y); ctx.lineTo(cordX,cordY);
+    ctx.strokeStyle=`rgba(200,100,50,${cordInfection*0.3})`; ctx.lineWidth=0.5;
+    ctx.setLineDash([3,6]); ctx.stroke(); ctx.setLineDash([]);
   }
+
   particles.forEach(s=>{
     s.x=(s.x+s.vx+W)%W; s.y=(s.y+s.vy+H)%H;
     ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
-    ctx.fillStyle=`rgba(180,90,50,${s.alpha*.3})`; ctx.fill();
+    ctx.fillStyle=`rgba(160,80,40,${s.alpha*.25})`; ctx.fill();
   });
-  const cg=ctx.createRadialGradient(mouse.x,mouse.y,0,mouse.x,mouse.y,12);
-  cg.addColorStop(0,'rgba(210,110,60,0.8)'); cg.addColorStop(1,'rgba(210,110,60,0)');
-  ctx.beginPath(); ctx.arc(mouse.x,mouse.y,12,0,Math.PI*2); ctx.fillStyle=cg; ctx.fill();
+
+  // user cursor (what they think they control)
+  const cg=ctx.createRadialGradient(mouse.x,mouse.y,0,mouse.x,mouse.y,10);
+  cg.addColorStop(0,'rgba(220,200,180,0.5)'); cg.addColorStop(1,'rgba(220,200,180,0)');
+  ctx.beginPath(); ctx.arc(mouse.x,mouse.y,10,0,Math.PI*2); ctx.fillStyle=cg; ctx.fill();
+
+  // fungus cursor (where it's actually going)
+  const fg=ctx.createRadialGradient(cordX,cordY,0,cordX,cordY,14);
+  fg.addColorStop(0,`rgba(210,100,40,${0.4+cordInfection*0.4})`); fg.addColorStop(1,'rgba(210,100,40,0)');
+  ctx.beginPath(); ctx.arc(cordX,cordY,14,0,Math.PI*2); ctx.fillStyle=fg; ctx.fill();
 }
 
 function drawBioluminescent(){
