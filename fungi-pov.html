@@ -27,13 +27,13 @@ canvas{display:block;width:100%;height:100%;}
 #back.visible{opacity:1;pointer-events:all;}
 #species-label{position:fixed;bottom:28px;left:28px;z-index:20;opacity:0;pointer-events:none;transition:opacity 0.6s ease;}
 #species-label.visible{opacity:1;}
-#species-label .sname{font-family:'Space Mono',monospace;font-size:clamp(9px,0.85vw,11px);letter-spacing:0.25em;color:var(--dim);font-style:italic;}
-#species-label .sdesc{font-family:'Space Mono',monospace;font-size:clamp(8px,0.75vw,10px);letter-spacing:0.15em;color:rgba(232,228,216,0.2);margin-top:4px;}
+.sname{font-family:'Space Mono',monospace;font-size:clamp(9px,0.85vw,11px);letter-spacing:0.25em;color:var(--dim);font-style:italic;}
+.sdesc{font-family:'Space Mono',monospace;font-size:clamp(8px,0.75vw,10px);letter-spacing:0.15em;color:rgba(232,228,216,0.2);margin-top:4px;}
 #phase-label{position:fixed;top:28px;right:28px;z-index:20;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.3em;color:var(--dim);opacity:0;pointer-events:none;transition:opacity 0.6s ease;}
 #phase-label.visible{opacity:1;}
 #hint{position:fixed;bottom:28px;right:28px;z-index:20;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.2em;color:rgba(232,228,216,0.18);opacity:0;pointer-events:none;transition:opacity 0.6s ease;}
 #hint.visible{opacity:1;}
-#sound-btn{position:fixed;top:28px;left:50%;transform:translateX(-50%);z-index:20;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.2em;color:rgba(232,228,216,0.2);cursor:pointer;background:none;border:none;opacity:0;pointer-events:none;transition:opacity 0.6s ease,color 0.2s;}
+#sound-btn{position:fixed;top:28px;left:50%;transform:translateX(-50%);z-index:20;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.2em;color:rgba(232,228,216,0.2);cursor:pointer;background:none;border:none;opacity:0;pointer-events:none;transition:opacity 0.6s ease,color 0.2s;white-space:nowrap;}
 #sound-btn:hover{color:rgba(232,228,216,0.5);}
 #sound-btn.visible{opacity:1;pointer-events:all;}
 </style>
@@ -72,164 +72,115 @@ resize();
 window.addEventListener('resize',resize);
 
 // ─── AUDIO ───────────────────────────────────────────────
-let audioCtx=null, soundOn=false, ambientNode=null, ambientGain=null;
+let AC=null, soundOn=false;
+let ambOscs=[], ambGain=null;
 
-function getAudio(){
-  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-  return audioCtx;
+function getAC(){
+  if(!AC){
+    AC=new(window.AudioContext||window.webkitAudioContext)();
+  }
+  if(AC.state==='suspended') AC.resume();
+  return AC;
 }
 
 function toggleSound(){
   soundOn=!soundOn;
   soundBtn.textContent=soundOn?'♪ sound off':'♪ sound on';
-  if(!soundOn && ambientGain) ambientGain.gain.setTargetAtTime(0,getAudio().currentTime,0.3);
-  else if(soundOn) startAmbient(currentSpecies);
+  if(soundOn){
+    getAC();
+    startAmbient(currentSpecies);
+  } else {
+    stopAmbient();
+  }
 }
 
 function stopAmbient(){
-  if(ambientGain){ambientGain.gain.setTargetAtTime(0,getAudio().currentTime,0.4);}
-  setTimeout(()=>{if(ambientNode){try{ambientNode.stop();}catch(e){} ambientNode=null;}},600);
+  if(ambGain){
+    try{ ambGain.gain.setTargetAtTime(0,AC.currentTime,0.3); } catch(e){}
+  }
+  setTimeout(()=>{
+    ambOscs.forEach(o=>{try{o.stop();}catch(e){}});
+    ambOscs=[];
+    ambGain=null;
+  },500);
 }
 
-// 01 Mucor — low humid drone, slight wobble
-function ambientMucor(ac){
-  const osc=ac.createOscillator();
-  const osc2=ac.createOscillator();
-  const gain=ac.createGain();
-  const lfo=ac.createOscillator();
-  const lfoGain=ac.createGain();
-  lfo.frequency.value=0.3; lfoGain.gain.value=4;
-  lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
-  osc.type='sine'; osc.frequency.value=55;
-  osc2.type='sine'; osc2.frequency.value=82.5;
-  gain.gain.value=0;
-  osc.connect(gain); osc2.connect(gain); gain.connect(ac.destination);
-  lfo.start(); osc.start(); osc2.start();
-  gain.gain.setTargetAtTime(0.06,ac.currentTime,1.2);
-  return{stop:()=>{try{osc.stop();osc2.stop();lfo.stop();}catch(e){}},gain};
-}
-
-// 02 Lycoperdon — sparse high tone, waiting feel
-function ambientLycoperdon(ac){
-  const osc=ac.createOscillator();
-  const gain=ac.createGain();
-  const filter=ac.createBiquadFilter();
-  filter.type='bandpass'; filter.frequency.value=800; filter.Q.value=8;
-  osc.type='sawtooth'; osc.frequency.value=200;
-  gain.gain.value=0;
-  osc.connect(filter); filter.connect(gain); gain.connect(ac.destination);
-  osc.start();
-  gain.gain.setTargetAtTime(0.04,ac.currentTime,1);
-  return{stop:()=>{try{osc.stop();}catch(e){}},gain};
-}
-
-// 03 Aspergillus — airy buzz, high freq shimmer
-function ambientAspergillus(ac){
-  const osc=ac.createOscillator();
-  const osc2=ac.createOscillator();
-  const gain=ac.createGain();
-  const filter=ac.createBiquadFilter();
-  filter.type='highpass'; filter.frequency.value=600;
-  osc.type='sawtooth'; osc.frequency.value=220;
-  osc2.type='square'; osc2.frequency.value=330;
-  const g2=ac.createGain(); g2.gain.value=0.3;
-  gain.gain.value=0;
-  osc.connect(filter); osc2.connect(g2); g2.connect(filter); filter.connect(gain); gain.connect(ac.destination);
-  osc.start(); osc2.start();
-  gain.gain.setTargetAtTime(0.035,ac.currentTime,1);
-  return{stop:()=>{try{osc.stop();osc2.stop();}catch(e){}},gain};
-}
-
-// 04 Cordyceps — creepy slow pulse drone
-function ambientCordyceps(ac){
-  const osc=ac.createOscillator();
-  const gain=ac.createGain();
-  const lfo=ac.createOscillator();
-  const lfoGain=ac.createGain();
-  lfo.frequency.value=0.15; lfoGain.gain.value=0.04;
-  lfo.connect(lfoGain); lfoGain.connect(gain.gain);
-  osc.type='triangle'; osc.frequency.value=40;
-  gain.gain.value=0;
-  osc.connect(gain); gain.connect(ac.destination);
-  lfo.start(); osc.start();
-  gain.gain.setTargetAtTime(0.08,ac.currentTime,1.5);
-  return{stop:()=>{try{osc.stop();lfo.stop();}catch(e){}},gain};
-}
-
-// 05 Panellus — gentle shimmering hum, ethereal
-function ambientPanellus(ac){
-  const osc=ac.createOscillator();
-  const osc2=ac.createOscillator();
-  const gain=ac.createGain();
-  const lfo=ac.createOscillator();
-  const lfoGain=ac.createGain();
-  lfo.frequency.value=0.5; lfoGain.gain.value=8;
-  lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
-  osc.type='sine'; osc.frequency.value=440;
-  osc2.type='sine'; osc2.frequency.value=528;
-  const g2=ac.createGain(); g2.gain.value=0.4;
-  gain.gain.value=0;
-  osc.connect(gain); osc2.connect(g2); g2.connect(gain); gain.connect(ac.destination);
-  lfo.start(); osc.start(); osc2.start();
-  gain.gain.setTargetAtTime(0.04,ac.currentTime,1.2);
-  return{stop:()=>{try{osc.stop();osc2.stop();lfo.stop();}catch(e){}},gain};
+function makeAmbient(freqs, type, vol, lfoHz, lfoDepth){
+  const ac=getAC();
+  const master=ac.createGain();
+  master.gain.setValueAtTime(0,ac.currentTime);
+  master.gain.linearRampToValueAtTime(vol,ac.currentTime+2);
+  master.connect(ac.destination);
+  ambGain=master;
+  const oscs=[];
+  freqs.forEach(f=>{
+    const o=ac.createOscillator();
+    o.type=type; o.frequency.value=f;
+    o.connect(master); o.start();
+    oscs.push(o);
+  });
+  if(lfoHz>0){
+    const lfo=ac.createOscillator();
+    const lg=ac.createGain();
+    lfo.frequency.value=lfoHz; lg.gain.value=lfoDepth;
+    lfo.connect(lg);
+    oscs.forEach(o=>lg.connect(o.frequency));
+    lfo.start(); oscs.push(lfo);
+  }
+  ambOscs=oscs;
 }
 
 function startAmbient(i){
-  stopAmbient();
   if(!soundOn) return;
-  const ac=getAudio();
-  const fns=[ambientMucor,ambientLycoperdon,ambientAspergillus,ambientCordyceps,ambientPanellus];
-  if(i<0||i>=fns.length) return;
-  const result=fns[i](ac);
-  ambientNode=result; ambientGain=result.gain;
+  stopAmbient();
+  setTimeout(()=>{
+    if(!soundOn) return;
+    if(i===0) makeAmbient([55,82.5],'sine',0.07,0.3,5);
+    if(i===1) makeAmbient([200,201],'sawtooth',0.03,0,0);
+    if(i===2) makeAmbient([220,330,440],'sawtooth',0.025,0,0);
+    if(i===3) makeAmbient([40,41],'triangle',0.09,0.12,1);
+    if(i===4) makeAmbient([440,528],'sine',0.04,0.5,8);
+  },550);
 }
 
-// one-shot sound events
-function playSoundEvent(type){
+function playSFX(type){
   if(!soundOn) return;
-  const ac=getAudio();
-  if(type==='mucor-pulse'){
-    const osc=ac.createOscillator(); const g=ac.createGain();
-    osc.type='sine'; osc.frequency.value=80+(Math.random()*20);
-    g.gain.setValueAtTime(0.12,ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.4);
-    osc.connect(g); g.connect(ac.destination);
-    osc.start(); osc.stop(ac.currentTime+0.4);
+  const ac=getAC();
+  const t=ac.currentTime;
+  if(type==='mucor'){
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type='sine'; o.frequency.value=60+Math.random()*30;
+    g.gain.setValueAtTime(0.15,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.5);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+0.5);
   }
-  if(type==='lyco-pop'){
-    const buf=ac.createBuffer(1,ac.sampleRate*.15,ac.sampleRate);
+  if(type==='lyco'){
+    const buf=ac.createBuffer(1,Math.floor(ac.sampleRate*0.2),ac.sampleRate);
     const d=buf.getChannelData(0);
-    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
-    const src=ac.createBufferSource(); src.buffer=buf;
-    const g=ac.createGain(); g.gain.value=0.3;
-    const f=ac.createBiquadFilter(); f.type='bandpass'; f.frequency.value=300; f.Q.value=2;
-    src.connect(f); f.connect(g); g.connect(ac.destination); src.start();
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(ac.sampleRate*0.04));
+    const src=ac.createBufferSource(), g=ac.createGain();
+    const f=ac.createBiquadFilter(); f.type='bandpass'; f.frequency.value=250; f.Q.value=1.5;
+    src.buffer=buf; g.gain.value=0.5;
+    src.connect(f); f.connect(g); g.connect(ac.destination); src.start(t);
   }
-  if(type==='asp-buzz'){
-    const osc=ac.createOscillator(); const g=ac.createGain();
-    osc.type='square'; osc.frequency.value=300+Math.random()*200;
-    g.gain.setValueAtTime(0.04,ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.12);
-    osc.connect(g); g.connect(ac.destination);
-    osc.start(); osc.stop(ac.currentTime+0.12);
+  if(type==='asp'){
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type='square'; o.frequency.value=400+Math.random()*300;
+    g.gain.setValueAtTime(0.05,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.1);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+0.1);
   }
-  if(type==='cord-thud'){
-    const osc=ac.createOscillator(); const g=ac.createGain();
-    osc.type='triangle'; osc.frequency.setValueAtTime(80,ac.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(30,ac.currentTime+0.3);
-    g.gain.setValueAtTime(0.15,ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.5);
-    osc.connect(g); g.connect(ac.destination);
-    osc.start(); osc.stop(ac.currentTime+0.5);
+  if(type==='cord'){
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type='triangle';
+    o.frequency.setValueAtTime(90,t);
+    o.frequency.exponentialRampToValueAtTime(28,t+0.4);
+    g.gain.setValueAtTime(0.2,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.5);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+0.5);
   }
-  if(type==='pane-ping'){
-    const osc=ac.createOscillator(); const g=ac.createGain();
-    osc.type='sine'; osc.frequency.value=880+Math.random()*440;
-    g.gain.setValueAtTime(0.08,ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.8);
-    osc.connect(g); g.connect(ac.destination);
-    osc.start(); osc.stop(ac.currentTime+0.8);
+  if(type==='pane'){
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type='sine'; o.frequency.value=700+Math.random()*600;
+    g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.001,t+1.0);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+1.0);
   }
 }
 
@@ -253,10 +204,13 @@ function onMove(cx,cy){
 window.addEventListener('mousemove',e=>onMove(e.clientX,e.clientY));
 window.addEventListener('touchmove',e=>{e.preventDefault();onMove(e.touches[0].clientX,e.touches[0].clientY);},{passive:false});
 window.addEventListener('click',e=>{
-  if(currentSpecies===1){spawnExplosion(mouse.x,mouse.y);}
+  if(currentSpecies===1) spawnExplosion(mouse.x,mouse.y);
 });
 
-function clearState(){particles=[];threads=[];colonies=[];pulses=[];trails=[];network=[];stillTime=0;moved=false;frame=0;}
+function clearState(){
+  particles=[];threads=[];colonies=[];pulses=[];trails=[];network=[];
+  stillTime=0;moved=false;frame=0;
+}
 
 function createThread(x,y){
   return{x,y,angle:Math.random()*Math.PI*2,length:0,maxLen:50+Math.random()*150,
@@ -265,7 +219,7 @@ function createThread(x,y){
 }
 
 function spawnExplosion(x,y){
-  playSoundEvent('lyco-pop');
+  playSFX('lyco');
   for(let i=0;i<80;i++){
     const a=Math.random()*Math.PI*2,sp=2+Math.random()*6;
     particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:1+Math.random()*2.5,alpha:0.9,life:1,decay:0.012+Math.random()*0.018,spore:false});
@@ -290,12 +244,11 @@ function initCordyceps(){
 function initBioluminescent(){
   for(let i=0;i<120;i++) network.push({x:Math.random()*W,y:Math.random()*H,alpha:0,targetAlpha:0,r:.5+Math.random()*1.5,phase:Math.random()*Math.PI*2,connections:[]});
   for(let i=0;i<network.length;i++){
-    const a=network[i];
     for(let j=0;j<network.length;j++){
       if(i===j) continue;
-      if(Math.hypot(a.x-network[j].x,a.y-network[j].y)<130) a.connections.push(j);
+      if(Math.hypot(network[i].x-network[j].x,network[i].y-network[j].y)<130) network[i].connections.push(j);
     }
-    a.connections=a.connections.slice(0,4);
+    network[i].connections=network[i].connections.slice(0,4);
   }
 }
 
@@ -317,7 +270,9 @@ function launch(i){
   if(i===2) initAspergillus();
   if(i===3) initCordyceps();
   if(i===4) initBioluminescent();
-  startAmbient(i);
+  // sound 버튼 상태 반영
+  soundBtn.textContent=soundOn?'♪ sound off':'♪ sound on';
+  if(soundOn) startAmbient(i);
 }
 
 function goBack(){
@@ -359,7 +314,7 @@ function drawMucor(){
     threads.push(t); if(threads.length>160) threads.shift();
     if(Math.random()<.12){
       pulses.push({x:mouse.x,y:mouse.y,r:0,maxR:50,alpha:.4});
-      if(Math.random()<.2) playSoundEvent('mucor-pulse');
+      if(Math.random()<.15) playSFX('mucor');
     }
   }
   moved=false;
@@ -415,9 +370,9 @@ function drawLycoperdon(){
       ctx.fillStyle=`rgba(210,195,160,${p.alpha})`; ctx.fill();
     } else {
       p.x+=p.vx; p.y+=p.vy; p.vy+=0.04; p.vx*=0.99;
-      p.alpha-=p.decay; p.life-=p.decay;
+      p.alpha-=p.decay;
       if(p.alpha<=0){particles.splice(i,1);continue;}
-      ctx.beginPath(); ctx.arc(p.x,p.y,p.r*(p.life+0.1),0,Math.PI*2);
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
       ctx.fillStyle=`rgba(230,210,160,${p.alpha})`; ctx.fill();
     }
   }
@@ -429,9 +384,9 @@ function drawLycoperdon(){
   }
   network.forEach(n=>{
     n.pulse+=0.02;
-    const breathe=Math.sin(n.pulse)*.3+.7;
-    ctx.beginPath(); ctx.arc(n.x,n.y,n.r*breathe,0,Math.PI*2);
-    ctx.strokeStyle=`rgba(180,155,100,0.12)`; ctx.lineWidth=0.5; ctx.stroke();
+    const b=Math.sin(n.pulse)*.3+.7;
+    ctx.beginPath(); ctx.arc(n.x,n.y,n.r*b,0,Math.PI*2);
+    ctx.strokeStyle='rgba(180,155,100,0.12)'; ctx.lineWidth=0.5; ctx.stroke();
   });
   phaseEl.textContent='RELEASE';
   const cg=ctx.createRadialGradient(mouse.x,mouse.y,0,mouse.x,mouse.y,16);
@@ -442,16 +397,16 @@ function drawLycoperdon(){
 function drawAspergillus(){
   ctx.fillStyle='rgba(0,0,0,0.06)'; ctx.fillRect(0,0,W,H);
   const dx=mouse.x-prevMouse.x,dy=mouse.y-prevMouse.y;
-  const speed=Math.hypot(dx,dy);
+  const spd=Math.hypot(dx,dy);
   prevMouse={...mouse};
-  if(speed>2){
+  if(spd>2){
     for(let i=0;i<8;i++){
       const a=Math.atan2(dy,dx)+(i/8)*Math.PI*2+(Math.random()-.5)*.4;
       const t=createThread(mouse.x,mouse.y);
       t.angle=a; t.maxLen=20+Math.random()*60; t.speed=1.2+Math.random()*1.5;
       t.width=0.3+Math.random()*.5; t.alpha=0.4+Math.random()*.3; t.maxBranches=1;
       threads.push(t);
-      if(Math.random()<.05) playSoundEvent('asp-buzz');
+      if(Math.random()<.04) playSFX('asp');
     }
     if(threads.length>400) threads.splice(0,threads.length-400);
     phaseEl.textContent='RADIATING';
@@ -466,7 +421,8 @@ function drawAspergillus(){
     const prev=t.segments[t.segments.length-2];
     const prog=t.length/t.maxLen;
     ctx.beginPath(); ctx.moveTo(prev.x,prev.y); ctx.lineTo(nx,ny);
-    ctx.strokeStyle=`rgba(${Math.round(160+prog*60)},${Math.round(100+prog*40)},${Math.round(220-prog*60)},${t.alpha*(1-prog*.5)})`; ctx.lineWidth=t.width*(1-prog*.4); ctx.stroke();
+    ctx.strokeStyle=`rgba(${Math.round(160+prog*60)},${Math.round(100+prog*40)},${Math.round(220-prog*60)},${t.alpha*(1-prog*.5)})`;
+    ctx.lineWidth=t.width*(1-prog*.4); ctx.stroke();
     if(t.length>t.maxLen*.5&&t.branches<t.maxBranches&&Math.random()<.04){
       const b=createThread(seg.x,seg.y);
       b.angle=t.angle+(Math.random()>.5?1:-1)*(.5+Math.random()*.5);
@@ -491,16 +447,16 @@ function drawCordyceps(){
   const spd=Math.hypot(dx,dy);
   prevMouse={...mouse};
   if(spd>1.5){
-    trails.push({x:mouse.x,y:mouse.y,r:0,maxR:18+Math.random()*14,alpha:.55,age:0,growing:true});
+    trails.push({x:mouse.x,y:mouse.y,r:0,maxR:18+Math.random()*14,alpha:.55,growing:true});
     if(Math.random()<.06){
       pulses.push({x:mouse.x,y:mouse.y,r:0,maxR:40,alpha:.35});
-      if(Math.random()<.15) playSoundEvent('cord-thud');
+      if(Math.random()<.12) playSFX('cord');
     }
     if(trails.length>300) trails.shift();
     phaseEl.textContent='INFECTING';
   } else {phaseEl.textContent='DORMANT';}
   for(let i=trails.length-1;i>=0;i--){
-    const t=trails[i]; t.age++;
+    const t=trails[i];
     if(t.growing&&t.r<t.maxR) t.r+=0.6; else t.growing=false;
     t.alpha=Math.max(0,t.alpha-0.0018);
     if(t.alpha<=0){trails.splice(i,1);continue;}
@@ -528,22 +484,21 @@ function drawCordyceps(){
 
 function drawBioluminescent(){
   ctx.fillStyle='rgba(0,0,0,0.1)'; ctx.fillRect(0,0,W,H);
-  const mdist=120;
-  let anyGlowing=false;
+  const mdist=120; let anyGlowing=false;
   network.forEach(n=>{
     const d=Math.hypot(n.x-mouse.x,n.y-mouse.y);
     n.targetAlpha=d<mdist?Math.pow(1-d/mdist,1.5)*.9:0;
     const wasLow=n.alpha<.05;
     n.alpha+=(n.targetAlpha-n.alpha)*.04;
     n.phase+=0.025;
-    if(n.alpha>.05&&wasLow&&Math.random()<.3) playSoundEvent('pane-ping');
+    if(n.alpha>.05&&wasLow&&Math.random()<.25) playSFX('pane');
     if(n.alpha>.01){
       anyGlowing=true;
       const breathe=Math.sin(n.phase)*.15+.85;
       const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r*6*breathe);
       g.addColorStop(0,`rgba(80,220,140,${n.alpha*.7})`);
       g.addColorStop(.4,`rgba(40,180,100,${n.alpha*.3})`);
-      g.addColorStop(1,`rgba(20,120,70,0)`);
+      g.addColorStop(1,'rgba(20,120,70,0)');
       ctx.beginPath(); ctx.arc(n.x,n.y,n.r*6*breathe,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
       ctx.beginPath(); ctx.arc(n.x,n.y,n.r*breathe,0,Math.PI*2);
       ctx.fillStyle=`rgba(160,255,180,${n.alpha})`; ctx.fill();
@@ -557,9 +512,6 @@ function drawBioluminescent(){
     }
   });
   phaseEl.textContent=anyGlowing?'GLOWING':'DARK';
-  const cg=ctx.createRadialGradient(mouse.x,mouse.y,0,mouse.x,mouse.y,mdist);
-  cg.addColorStop(0,'rgba(80,220,140,0.04)'); cg.addColorStop(1,'rgba(80,220,140,0)');
-  ctx.beginPath(); ctx.arc(mouse.x,mouse.y,mdist,0,Math.PI*2); ctx.fillStyle=cg; ctx.fill();
   ctx.beginPath(); ctx.arc(mouse.x,mouse.y,3,0,Math.PI*2);
   ctx.fillStyle='rgba(120,255,160,0.6)'; ctx.fill();
 }
