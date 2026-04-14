@@ -158,21 +158,20 @@ class Blob {
     this.x += this.vx + Math.sin(this.wobble) * 0.15 * tempEffect;
     this.y += this.vy + Math.cos(this.wobble*.75) * 0.15 * tempEffect;
 
-    // ── Humidity: grow toward moisture spots ──
-    let humidGrowth = 0;
+    // ── Humidity: directional growth toward moisture (hyphae extension) ──
     env.humidPoints.forEach(hp => {
       const hdx = this.x - hp.x, hdy = this.y - hp.y;
       const hd  = Math.sqrt(hdx*hdx + hdy*hdy);
-      if (hd < hp.r * 2.5) {
-        humidGrowth += hp.strength * (1 - hd / (hp.r*2.5));
-        // attract toward moisture
-        this.vx -= (hdx / (hd+1)) * hp.strength * 0.04;
-        this.vy -= (hdy / (hd+1)) * hp.strength * 0.04;
+      if (hd < hp.r * 3.5) {
+        const influence = hp.strength * (1 - hd / (hp.r * 3.5));
+        // strong directional pull — hyphae grow toward water source
+        this.vx -= (hdx / (hd+1)) * influence * 0.18;
+        this.vy -= (hdy / (hd+1)) * influence * 0.18;
       }
     });
-    // radius grows with humidity, shrinks back without
-    const targetR = this.baseR * (1 + humidGrowth * 0.8);
-    this.r += (targetR - this.r) * 0.04;
+    // radius stays close to base — only very slight swell
+    const targetR = this.baseR * 1.0;
+    this.r += (targetR - this.r) * 0.06;
 
     // boundary
     const pad = this.r*.5;
