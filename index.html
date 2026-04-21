@@ -802,7 +802,7 @@ const env = {
   mouseX: 400, mouseY: 300,
   speedX: 0, speedY: 0,
   mouseHumid: 0,
-  globalTemp: 0.14, // 시작 온도 ~15°C
+  globalTemp: 0.43, // 시작 온도 ~15°C
   light: 1, lightTarget: 1,
   wind: 0,
   humid: 0,
@@ -1090,7 +1090,7 @@ window.resetAll=()=>{
   colorIdx=1;
   env.humidPoints=[]; env.heatPoints=[];
   clickFlashes=[]; humidFlashes=[];
-  env.humid=0; env.mouseHumid=0; env.wind=0; env.globalTemp=0.14;
+  env.humid=0; env.mouseHumid=0; env.wind=0; env.globalTemp=0.43;
 };
 
 let frame=0;
@@ -1103,7 +1103,7 @@ function loop(){
   if(mouseDown) {
     env.globalTemp = Math.min(1, env.globalTemp + 0.004);
   } else {
-    env.globalTemp = Math.max(0.14, env.globalTemp - 0.005); // 15°C baseline
+    env.globalTemp = Math.max(0.43, env.globalTemp - 0.005); // 15°C baseline
   }
 
   // flash only when temp is actively rising
