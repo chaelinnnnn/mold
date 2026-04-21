@@ -61,7 +61,6 @@
 
   .nav-links li {
     flex: 1;
-    border-right: 1px solid rgba(26,26,24,0.15);
     padding: 0 20px 8px 0;
   }
   .nav-links li:last-child { border-right: none; }
@@ -80,6 +79,10 @@
   .nav-links a:hover,
   .nav-links a.active {
     color: var(--ink);
+  }
+
+  .nav-links a.active::before {
+    content: '→ ';
   }
 
   /* ── PAGES ── */
@@ -720,6 +723,7 @@ const env = {
   mouseX: 400, mouseY: 300,
   speedX: 0, speedY: 0,
   mouseHumid: 0,
+  globalTemp: 0,
   light: 1, lightTarget: 1,
   wind: 0,
   humid: 0,
@@ -783,17 +787,18 @@ class Blob {
         this.vy-=(hdy/(hd+1))*inf*.18;
       }
     });
-    // heat: blobs flee from heat (too hot = bad for mold)
-    env.heatPoints.forEach(hp=>{
-      const hdx=this.x-hp.x, hdy=this.y-hp.y;
-      const hd=Math.sqrt(hdx*hdx+hdy*hdy);
-      if(hd<hp.r*4){
-        const inf=hp.strength*(1-hd/(hp.r*4));
-        // flee outward + speed boost
-        this.vx+=(hdx/(hd+1))*inf*.3;
-        this.vy+=(hdy/(hd+1))*inf*.3;
-      }
-    });
+    // temperature effect on movement and survival
+    const t = env.globalTemp;
+    const tempBoost = t < 0.65
+      ? 1 + t * 2.5          // 적정 온도 → 활발
+      : 1 + (1-t) * 1.5;     // 과열 → 다시 느려짐
+    this.vx += (Math.random()-.5) * 0.015 * tempBoost;
+    this.vy += (Math.random()-.5) * 0.015 * tempBoost;
+
+    // 과열 → 블롭 서서히 줄어듦
+    if(t > 0.75) {
+      this.baseR = Math.max(2, this.baseR - (t - 0.75) * 0.3);
+    }
     // repulsion from other blobs
     for(const other of blobs){
       if(other===this) continue;
@@ -999,7 +1004,7 @@ window.resetAll=()=>{
   colorIdx=1;
   env.humidPoints=[]; env.heatPoints=[];
   clickFlashes=[]; humidFlashes=[];
-  env.humid=0; env.mouseHumid=0; env.wind=0;
+  env.humid=0; env.mouseHumid=0; env.wind=0; env.globalTemp=0;
 };
 
 let frame=0;
@@ -1008,38 +1013,40 @@ function loop(){
   env.lightTarget=spaceDown?0:1;
   env.light+=(env.lightTarget-env.light)*.06;
   env.wind=1-env.light;
-  // continuous heat while mouse held
+  // ── Global temperature: rises while held, cools when released ──
   if(mouseDown) {
-    clickFlashes.push({ x:env.mouseX, y:env.mouseY, strength:0.6 });
-    env.heatPoints.push({ x:env.mouseX, y:env.mouseY, strength:0.8 });
+    env.globalTemp = Math.min(1, env.globalTemp + 0.004);
+  } else {
+    env.globalTemp = Math.max(0, env.globalTemp - 0.006);
   }
+
+  // flash only when temp is actively rising
+  if(mouseDown) {
+    clickFlashes.push({ x:env.mouseX, y:env.mouseY, strength: Math.min(0.7, env.globalTemp * 0.8) });
+  }
+
   // continuous humidity while cmd+mouse held
   if(mouseDown && cmdDown) {
     humidFlashes.push({ x:env.mouseX, y:env.mouseY, strength:0.5 });
     env.humidPoints.push({ x:env.mouseX, y:env.mouseY, r:60+Math.random()*20, strength:0.7 });
   }
-  clickFlashes = clickFlashes.map(cf=>({...cf, strength: cf.strength * 0.88})).filter(cf=>cf.strength > 0.01);
+  clickFlashes = clickFlashes.map(cf=>({...cf, strength: cf.strength * 0.85})).filter(cf=>cf.strength > 0.01);
   humidFlashes = humidFlashes.map(cf=>({...cf, strength: cf.strength * 0.88})).filter(cf=>cf.strength > 0.01);
-  env.heatPoints = env.heatPoints.map(hp=>({...hp,strength:hp.strength*.93,r:hp.r+2})).filter(hp=>hp.strength>.02);
   env.humidPoints=env.humidPoints
     .map(hp=>({...hp,strength:hp.strength*.992}))
     .filter(hp=>hp.strength>.02);
   env.humid=Math.min(1,env.humidPoints.reduce((s,hp)=>s+hp.strength,0)/3);
-  // mouse proximity = moisture source
-  const minDist = blobs.reduce((mn,b)=>{
-    const dx=b.x-env.mouseX,dy=b.y-env.mouseY;
-    return Math.min(mn,Math.sqrt(dx*dx+dy*dy));
-  },Infinity);
-  const nearCount=blobs.filter(b=>{
-    const dx=b.x-env.mouseX,dy=b.y-env.mouseY;
-    return Math.sqrt(dx*dx+dy*dy)<Math.min(W,H)*.35;
-  }).length;
-  const heat = Math.min(1, env.heatPoints.reduce((s,hp)=>s+hp.strength,0)/3);
+  const heat = env.globalTemp;
   blobs=blobs.filter(b=>b.r>2);
   blobs.forEach(b=>b.update());
   tryBud();
   render();
+  // bar color: green → yellow → red
+  const tempColor = heat < 0.5
+    ? `rgba(${Math.floor(heat*2*200)},${180},80,0.8)`
+    : `rgba(220,${Math.floor((1-heat)*2*180)},40,0.8)`;
   barTemp.style.width=(heat*100)+'%';
+  barTemp.style.background = tempColor;
   barWind.style.width=((1-env.light)*100)+'%';
   barHumid.style.width=(env.humid*100)+'%';
   if(heat>.3) cursorEl.classList.add('hot');
