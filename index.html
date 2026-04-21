@@ -137,11 +137,11 @@
   }
 
   /* ── EXPERIMENTATION: canvas fills page ── */
-  #page-experimentation {
+  #page-Experimentation {
     padding-top: 0;
   }
 
-  #page-experimentation .exp-nav-spacer {
+  #page-Experimentation .exp-nav-spacer {
     height: 68px;
     background: transparent;
     pointer-events: none;
@@ -160,14 +160,14 @@
   }
 
   /* HUD & controls from fission — positioned relative to page */
-  #page-experimentation #hud {
+  #page-Experimentation #hud {
     position: absolute;
     bottom: 48px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 32px; align-items: flex-end;
     z-index: 10; pointer-events: none;
   }
 
-  #page-experimentation #hud {
+  #page-Experimentation #hud {
     position: absolute;
     bottom: 48px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 48px; align-items: flex-end;
@@ -256,7 +256,7 @@
   }
   #reset-btn:hover { color: var(--ink); border-color: rgba(26,26,24,0.4); }
 
-  /* custom cursor — only on experimentation page */
+  /* custom cursor — only on Experimentation page */
   .page-inner--scroll {
     overflow-y: auto;
     height: 100%;
@@ -546,7 +546,7 @@
     <li><a href="#" data-page="about" class="active">About Mold</a></li>
     <li><a href="#" data-page="timeline">Growth Timeline</a></li>
     <li><a href="#" data-page="principle">Design Principle</a></li>
-    <li><a href="#" data-page="experimentation">experiment</a></li>
+    <li><a href="#" data-page="Experimentation">Experiment</a></li>
   </ul>
 </nav>
 
@@ -702,7 +702,7 @@
 </div>
 
 <!-- EXPERIMENTATION -->
-<div class="page" id="page-experimentation">
+<div class="page" id="page-Experimentation">
   <div id="exp-canvas-wrap">
     <canvas id="c"></canvas>
   </div>
@@ -762,8 +762,8 @@ function showPage(id) {
   const link = document.querySelector(`[data-page="${id}"]`);
   if (link) link.classList.add('active');
 
-  // show custom cursor only on experimentation
-  if (id === 'experimentation') {
+  // show custom cursor only on Experimentation
+  if (id === 'Experimentation') {
     cursorEl.style.display = 'block';
     resizeCanvas();
   } else {
@@ -1018,7 +1018,7 @@ let mouseDown = false;
 document.addEventListener('mousedown', e=>{
   if(e.target.id==='reset-btn') return;
   const activePage=document.querySelector('.page.active');
-  if(!activePage||activePage.id!=='page-experimentation') return;
+  if(!activePage||activePage.id!=='page-Experimentation') return;
   if(e.metaKey||e.ctrlKey) return; // cmd is humidity
   mouseDown = true;
 });
@@ -1028,7 +1028,7 @@ document.addEventListener('mouseup', ()=>{ mouseDown = false; });
 document.addEventListener('click', e=>{
   if(e.target.id==='reset-btn') return;
   const activePage=document.querySelector('.page.active');
-  if(!activePage||activePage.id!=='page-experimentation') return;
+  if(!activePage||activePage.id!=='page-Experimentation') return;
   // cmd/ctrl + click → humidity
   if(e.metaKey||e.ctrlKey) {
     humidFlashes.push({ x:e.clientX, y:e.clientY, strength:1.0 });
