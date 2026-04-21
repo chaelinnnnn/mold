@@ -2,124 +2,757 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Test 2 — Fission</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Language as mold</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #7a7a7a; transition: background 0.3s; width: 100vw; height: 100vh; overflow: hidden; cursor: none; }
-  canvas { display: block; position: fixed; inset: 0; }
+  @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
 
-  /* Environment HUD */
-  #hud {
-    position: fixed; bottom: 48px; left: 50%; transform: translateX(-50%);
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #f2f0eb;
+    --ink: #1a1a18;
+    --mid: #8a8880;
+    --accent: #c8b89a;
+    --active-color: #1a1a18;
+    --col: 72px;
+    --gap: 24px;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IM Fell English', serif;
+    
+    overflow: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    padding: 28px 40px 0;
+    background: var(--bg);
+  }
+
+  .nav-brand {
+    font-size: 13px;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+    margin-right: 48px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 0;
+    list-style: none;
+    border-top: 1px solid var(--ink);
+    padding-top: 8px;
+    flex: 1;
+  }
+
+  .nav-links li {
+    flex: 1;
+    border-right: 1px solid rgba(26,26,24,0.15);
+    padding: 0 20px 8px 0;
+  }
+  .nav-links li:last-child { border-right: none; }
+
+  .nav-links a {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    color: var(--mid);
+    cursor: pointer;
+    transition: color 0.2s;
+    white-space: nowrap;
+    
+  }
+
+  .nav-links a:hover,
+  .nav-links a.active {
+    color: var(--ink);
+  }
+
+  .nav-links a.active::before {
+    content: '→ ';
+  }
+
+  /* ── PAGES ── */
+  .page {
+    position: fixed;
+    inset: 0;
+    padding-top: 72px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+
+  .page.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* ── EMPTY PAGE PLACEHOLDER ── */
+  .page-inner {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 48px 40px 40px;
+  }
+
+  .page-label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--mid);
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+  }
+
+  .page-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(26,26,24,0.12);
+    max-width: 240px;
+  }
+
+  .page-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed rgba(26,26,24,0.12);
+  }
+
+  .page-empty span {
+    font-family: 'IM Fell English', serif;
+    
+    font-size: 13px;
+    color: rgba(26,26,24,0.2);
+    letter-spacing: 0.04em;
+  }
+
+  /* ── EXPERIMENTATION: canvas fills page ── */
+  #page-experimentation {
+    padding-top: 0;
+  }
+
+  #page-experimentation .exp-nav-spacer {
+    height: 68px;
+    background: transparent;
+    pointer-events: none;
+  }
+
+  #exp-canvas-wrap {
+    position: absolute;
+    inset: 0;
+    top: 68px;
+  }
+
+  #exp-canvas-wrap canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* HUD & controls from fission — positioned relative to page */
+  #page-experimentation #hud {
+    position: absolute;
+    bottom: 48px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 32px; align-items: flex-end;
     z-index: 10; pointer-events: none;
   }
+
   .env-var {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
   }
   .env-label {
-    font-family: 'Courier New', monospace; font-size: 9px;
-    letter-spacing: 0.18em; text-transform: uppercase;
-    color: rgba(255,255,255,0.35);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: rgba(26,26,24,0.3);
+    
   }
   .env-bar-wrap {
-    width: 60px; height: 3px; background: rgba(255,255,255,0.12);
+    width: 60px; height: 2px; background: rgba(26,26,24,0.1);
     border-radius: 2px; overflow: hidden;
   }
   .env-bar {
     height: 100%; border-radius: 2px;
     transition: width 0.3s ease;
   }
-  #bar-temp { background: rgba(255,160,80,0.7); }
-  #bar-wind { background: rgba(255,240,100,0.8); }
-  #bar-humid { background: rgba(180,255,180,0.7); }
+  #bar-temp  { background: rgba(255,120,40,0.7); }
+  #bar-wind  { background: rgba(220,200,120,0.7); }
+  #bar-humid { background: rgba(80,200,180,0.7); }
 
-  #title {
-    position: fixed; top: 32px; left: 40px;
-    font-family: 'Courier New', monospace; font-size: 10px;
-    letter-spacing: 0.2em; color: rgba(255,255,255,0.22);
-    text-transform: uppercase; z-index: 10; pointer-events: none;
-  }
   #reset-btn {
-    position: fixed; top: 28px; right: 36px;
-    font-family: 'Courier New', monospace; font-size: 10px;
-    letter-spacing: 0.18em; text-transform: uppercase;
-    color: rgba(255,255,255,0.22); background: none;
-    border: 1px solid rgba(255,255,255,0.12);
+    position: absolute; top: 88px; right: 36px;
+    font-family: 'IM Fell English', serif;
+    
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: rgba(26,26,24,0.3); background: none;
+    border: 1px solid rgba(26,26,24,0.15);
     padding: 6px 14px; cursor: pointer; transition: all 0.3s; z-index: 10;
   }
-  #reset-btn:hover { color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.35); }
+  #reset-btn:hover { color: var(--ink); border-color: rgba(26,26,24,0.4); }
 
-  /* custom cursor */
-  #cursor {
-    position: fixed; pointer-events: none; z-index: 20;
+  /* custom cursor — only on experimentation page */
+  .page-inner--scroll {
+    overflow-y: auto;
+    height: 100%;
+  }
+
+  .about-section {
+    margin-bottom: 72px;
+    padding-bottom: 72px;
+    border-bottom: 1px solid rgba(26,26,24,0.1);
+  }
+  .about-section:last-child {
+    border-bottom: none;
+  }
+  .about-header {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 48px;
+    align-items: flex-start;
+    margin-bottom: 40px;
+  }
+  .about-title {
+    font-size: 22px;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .about-desc {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--mid);
+    max-width: 560px;
+  }
+
+  /* Respond cards */
+  .respond-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding-left: 248px;
+  }
+  .respond-card {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(26,26,24,0.1);
+  }
+  .respond-card-top {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 14px 16px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+  .respond-card-body {
+    padding: 18px 16px;
+    font-size: 12px;
+    color: var(--mid);
+    line-height: 1.6;
+    background: var(--bg);
+  }
+
+  /* Communication */
+  .comm-layout {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    padding-left: 248px;
+  }
+  .comm-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .comm-circle {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .comm-quote {
+    font-size: 12px;
+    color: var(--mid);
+    text-align: center;
+    line-height: 1.6;
+  }
+  .comm-arrow {
+    font-size: 11px;
+    color: var(--mid);
+    letter-spacing: 0.1em;
+    flex-shrink: 0;
+  }
+  .comm-right {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+  }
+  .comm-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .comm-item-label {
+    font-size: 11px;
+    color: var(--mid);
+    letter-spacing: 0.06em;
+  }
+  .comm-item-box {
+    border: 1px solid rgba(26,26,24,0.12);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+
+  /* Findings */
+  .findings-grid {
+    display: flex;
+    gap: 24px;
+    padding-left: 248px;
+  }
+  .findings-circle {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+    padding: 24px;
+    flex-shrink: 0;
+  }
+  .findings-num {
+    font-size: 10px;
+    color: rgba(242,240,235,0.4);
+    letter-spacing: 0.12em;
+  }
+  .findings-text {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .timeline-header {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 48px;
+    align-items: flex-start;
+    margin-bottom: 48px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid rgba(26,26,24,0.1);
+  }
+  .timeline-title {
+    font-size: 22px;
+    font-weight: normal;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+    padding-top: 4px;
+  }
+  .timeline-desc {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--mid);
+    max-width: 560px;
+  }
+  .timeline-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+  .timeline-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .timeline-date {
+    font-size: 13px;
+    color: var(--mid);
+    letter-spacing: 0.02em;
+    text-align: center;
+    margin-bottom: 2px;
+  }
+  .timeline-name {
+    font-size: 13px;
+    color: var(--ink);
+    text-align: center;
+    margin-bottom: 10px;
+    letter-spacing: 0.01em;
+  }
+  .timeline-img-wrap {
+    width: 100%;
+    aspect-ratio: 1/1;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(26,26,24,0.06);
+  }
+  .timeline-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .timeline-caption {
+    font-size: 11px;
+    color: var(--mid);
+    text-align: center;
+    line-height: 1.6;
+    margin-top: 6px;
+  }
+
+  .principle-header {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 48px;
+    align-items: flex-start;
+    margin-bottom: 48px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid rgba(26,26,24,0.1);
+  }
+  .principle-title {
+    font-size: 22px;
+    font-weight: normal;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+    padding-top: 4px;
+  }
+  .principle-desc {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--mid);
+    max-width: 560px;
+  }
+  .principle-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .principle-item {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 48px;
+    align-items: baseline;
+    border-top: 1px solid rgba(26,26,24,0.1);
+    padding: 24px 0;
+  }
+  .principle-num {
+    font-size: 11px;
+    color: var(--mid);
+  }
+  .principle-text {
+    font-size: 18px;
+    color: var(--ink);
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+  }
+    position: fixed; pointer-events: none; z-index: 200;
     width: 12px; height: 12px;
-    border: 1px solid rgba(255,255,255,0.5);
+    border: 1px solid rgba(26,26,24,0.4);
     border-radius: 50%;
     transform: translate(-50%,-50%);
     transition: width 0.2s, height 0.2s, border-color 0.2s;
+    display: none;
   }
   #cursor.hot {
     width: 20px; height: 20px;
-    border-color: rgba(255,160,80,0.7);
+    border-color: rgba(200,90,50,0.7);
   }
 </style>
 </head>
-<body>
-<div id="title">Test 02 — Fission</div>
-<div id="cursor"></div>
-<canvas id="c"></canvas>
-<button id="reset-btn" onclick="resetAll()">Clear</button>
+<body tabindex="0">
 
-<div id="hud">
-  <div class="env-var">
-    <div class="env-label">Temp</div>
-    <div class="env-bar-wrap"><div class="env-bar" id="bar-temp" style="width:0%"></div></div>
-  </div>
-  <div class="env-var">
-    <div class="env-label">Light</div>
-    <div class="env-bar-wrap"><div class="env-bar" id="bar-wind" style="width:0%"></div></div>
-  </div>
-  <div class="env-var">
-    <div class="env-label">Humidity</div>
-    <div class="env-bar-wrap"><div class="env-bar" id="bar-humid" style="width:0%"></div></div>
+<div id="cursor"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">Language as mold</div>
+  <ul class="nav-links">
+    <li><a href="#" data-page="about" class="active">About Mold</a></li>
+    <li><a href="#" data-page="timeline">Growth Timeline</a></li>
+    <li><a href="#" data-page="principle">Design Principle</a></li>
+    <li><a href="#" data-page="experimentation">experiment</a></li>
+  </ul>
+</nav>
+
+<!-- ABOUT MOLD -->
+<div class="page active" id="page-about">
+  <div class="page-inner page-inner--scroll">
+    <div class="page-label">00 — About Mold</div>
+
+    <!-- Section 1: Respond -->
+    <div class="about-section">
+      <div class="about-header">
+        <div class="about-title">Respond</div>
+        <p class="about-desc">Mold sense their environment through six mechanisms. They respond and adapt to external signals without a centralized brain.</p>
+      </div>
+      <div class="respond-grid">
+        <div class="respond-card">
+          <div class="respond-card-top">Chemical Sensing</div>
+          <div class="respond-card-body">Navigates via chemical gradients</div>
+        </div>
+        <div class="respond-card">
+          <div class="respond-card-top">Reaction To Touch</div>
+          <div class="respond-card-body">Grows along surfaces, reading texture</div>
+        </div>
+        <div class="respond-card">
+          <div class="respond-card-top">Response To Light</div>
+          <div class="respond-card-body">Senses and responds to light direction</div>
+        </div>
+        <div class="respond-card">
+          <div class="respond-card-top">Electrical Signals</div>
+          <div class="respond-card-body">Communicates through electrical impulses</div>
+        </div>
+        <div class="respond-card">
+          <div class="respond-card-top">Gravitropism</div>
+          <div class="respond-card-body">Uses gravity to orient fruiting bodies</div>
+        </div>
+        <div class="respond-card">
+          <div class="respond-card-top">Distributed Memory</div>
+          <div class="respond-card-body">Learns and adapts without a centralized brain</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Movement & Communication -->
+    <div class="about-section">
+      <div class="about-header">
+        <div class="about-title">Movement<br>& Communication</div>
+        <p class="about-desc">Mold do not move, yet they communicate through chemical signals and electrical impulses. Without physical movement, they connect and reorganize everything around them.</p>
+      </div>
+      <div class="comm-layout">
+        <div class="comm-left">
+          <div class="comm-circle">Mold</div>
+          <p class="comm-quote">Mold do not move.<br>Yet they connect everything.</p>
+        </div>
+        <div class="comm-arrow">- - - - ▶</div>
+        <div class="comm-right">
+          <div class="comm-item">
+            <div class="comm-item-label">Chemical Signaling</div>
+            <div class="comm-item-box">Releases Warning Signals When Nutrients Are Lacking</div>
+          </div>
+          <div class="comm-item">
+            <div class="comm-item-label">Electrical Impulses</div>
+            <div class="comm-item-box">Transmits Stimuli Through Structures Similar To Nerves</div>
+          </div>
+          <div class="comm-item">
+            <div class="comm-item-label">Physical Growth</div>
+            <div class="comm-item-box">Reroutes Its Path While Avoiding Obstacles</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Compelling Findings -->
+    <div class="about-section">
+      <div class="about-header">
+        <div class="about-title">Compelling Findings</div>
+        <p class="about-desc">Three core concepts were identified: boundless individuality, a different speed of time, and intelligence without a brain. Mold fundamentally challenge our existing frameworks for understanding life.</p>
+      </div>
+      <div class="findings-grid">
+        <div class="findings-circle">
+          <span class="findings-num">01</span>
+          <span class="findings-text">Boundless Individuality</span>
+        </div>
+        <div class="findings-circle">
+          <span class="findings-num">02</span>
+          <span class="findings-text">A Different Speed of Time</span>
+        </div>
+        <div class="findings-circle">
+          <span class="findings-num">03</span>
+          <span class="findings-text">Intelligence Without a Brain</span>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
+<!-- GROWTH TIMELINE -->
+<div class="page" id="page-timeline">
+  <div class="page-inner">
+    <div class="page-label">01 — Growth Timeline</div>
+    <div class="timeline-header">
+      <h2 class="timeline-title">Growth Timeline</h2>
+      <p class="timeline-desc">A 12-day petri dish observation was conducted. The growth process from initial formation to maximum colony distribution was visually documented.</p>
+    </div>
+    <div class="timeline-grid">
+      <div class="timeline-item">
+        <div class="timeline-date">3/2</div>
+        <div class="timeline-name">Initial Mycelium Formation</div>
+        <div class="timeline-img-wrap"><img src="growth1.jpg" alt="Initial Mycelium Formation"></div>
+        <p class="timeline-caption">Strongly influenced by temperature, humidity, and nutrient availability.</p>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-date">3/5</div>
+        <div class="timeline-name">Colony Emergence</div>
+        <div class="timeline-img-wrap"><img src="growth2.jpg" alt="Colony Emergence"></div>
+        <p class="timeline-caption">The network has become partially established.</p>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-date">3/8</div>
+        <div class="timeline-name">Population Increase</div>
+        <div class="timeline-img-wrap"><img src="growth3.jpg" alt="Population Increase"></div>
+        <p class="timeline-caption">The hyphae expand outward in a radial pattern.</p>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-date">3/10</div>
+        <div class="timeline-name">Continued Growth</div>
+        <div class="timeline-img-wrap"><img src="growth4.jpg" alt="Continued Growth"></div>
+        <p class="timeline-caption">The growth rate slows slightly, but expansion continues.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DESIGN PRINCIPLE -->
+<div class="page" id="page-principle">
+  <div class="page-inner">
+    <div class="page-label">02 — Design Principle</div>
+    <div class="principle-header">
+      <div class="principle-title">Design Principle</div>
+      <p class="principle-desc">Principles derived from observing mold as a living design system — decentralized, adaptive, and generative.</p>
+    </div>
+    <div class="principle-list">
+      <div class="principle-item">
+        <span class="principle-num">1.</span>
+        <span class="principle-text">Networks function without a center</span>
+      </div>
+      <div class="principle-item">
+        <span class="principle-num">2.</span>
+        <span class="principle-text">Decomposition can be a condition for creation.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EXPERIMENTATION -->
+<div class="page" id="page-experimentation">
+  <div id="exp-canvas-wrap">
+    <canvas id="c"></canvas>
+  </div>
+  <div id="hud">
+    <div class="env-var">
+      <div class="env-label">Temperature</div>
+      <div class="env-bar-wrap"><div class="env-bar" id="bar-temp" style="width:0%"></div></div>
+    </div>
+    <div class="env-var">
+      <div class="env-label">Darkness</div>
+      <div class="env-bar-wrap"><div class="env-bar" id="bar-wind" style="width:0%"></div></div>
+    </div>
+    <div class="env-var">
+      <div class="env-label">Humidity</div>
+      <div class="env-bar-wrap"><div class="env-bar" id="bar-humid" style="width:0%"></div></div>
+    </div>
+  </div>
+  <button id="reset-btn" onclick="resetAll()">Clear</button>
+</div>
+
 <script>
+// ── NAVIGATION ──
+const pages   = document.querySelectorAll('.page');
+const navLinks = document.querySelectorAll('.nav-links a');
+const cursorEl = document.getElementById('cursor');
+
+function showPage(id) {
+  pages.forEach(p => p.classList.remove('active'));
+  navLinks.forEach(a => a.classList.remove('active'));
+
+  const target = document.getElementById('page-' + id);
+  if (target) target.classList.add('active');
+
+  const link = document.querySelector(`[data-page="${id}"]`);
+  if (link) link.classList.add('active');
+
+  // show custom cursor only on experimentation
+  if (id === 'experimentation') {
+    cursorEl.style.display = 'block';
+    resizeCanvas();
+  } else {
+    cursorEl.style.display = 'none';
+  }
+}
+
+navLinks.forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    showPage(a.dataset.page);
+  });
+});
+
+// ── CANVAS SETUP ──
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
-let W = canvas.width  = window.innerWidth;
-let H = canvas.height = window.innerHeight;
+let W, H, sw, sh;
 
-const cursorEl   = document.getElementById('cursor');
-const barTemp    = document.getElementById('bar-temp');
-const barWind    = document.getElementById('bar-wind');
-const barHumid   = document.getElementById('bar-humid');
+function resizeCanvas() {
+  const wrap = document.getElementById('exp-canvas-wrap');
+  W = canvas.width  = wrap.offsetWidth;
+  H = canvas.height = wrap.offsetHeight;
+  sw = Math.ceil(W/SCALE);
+  sh = Math.ceil(H/SCALE);
+}
+
+const SCALE = 2;
+
+const barTemp  = document.getElementById('bar-temp');
+const barWind  = document.getElementById('bar-wind');
+const barHumid = document.getElementById('bar-humid');
 
 // ── Environment state ──
 const env = {
-  mouseX: W/2, mouseY: H/2,
-  speedX: 0,   speedY: 0,
-  temp:   0,   // 0–1, based on proximity to blobs
-  light:  1,   // 1=bright, 0=dark (space key)
-  lightTarget: 1,
-  wind:   0,   // kept for bar compat
-  humid:  0,   // 0–1, decays over time, boosted by click
-  humidPoints: [], // [{x,y,r,strength}] moisture spots
+  mouseX: 400, mouseY: 300,
+  speedX: 0, speedY: 0,
+  mouseHumid: 0,
+  light: 1, lightTarget: 1,
+  wind: 0,
+  humid: 0,
+  humidPoints: [],
+  heatPoints: [],
 };
 
 let spaceDown = false;
+let cmdDown   = false;
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); spaceDown = true; }
+  if (e.code==='Space') { e.preventDefault(); spaceDown=true; }
+  if (e.metaKey||e.ctrlKey) cmdDown=true;
 });
 document.addEventListener('keyup', e => {
-  if (e.code === 'Space') spaceDown = false;
+  if (e.code==='Space') spaceDown=false;
+  if (!e.metaKey&&!e.ctrlKey) cmdDown=false;
 });
 
-let prevX = W/2, prevY = H/2;
+let prevX=400, prevY=300;
 
-// ── Palette ──
+// ── Palette — warmer to match site tone ──
 const COLORS = [
   [232,120,152],[240,128,80],[200,136,216],
   [240,100,100],[216,160,216],[245,160,100],
@@ -127,120 +760,115 @@ const COLORS = [
 let colorIdx = 0;
 function nextColor() { return COLORS[colorIdx++ % COLORS.length]; }
 
-// ── Blob ──
-const SCALE = 2;
-let sw = Math.ceil(W/SCALE), sh = Math.ceil(H/SCALE);
 let blobs = [];
 
 class Blob {
-  constructor(x, y, r, color) {
-    this.x = x; this.y = y; this.r = r;
-    this.baseR = r;
-    this.color = color;
-    this.vx = (Math.random()-.5)*.8;
-    this.vy = (Math.random()-.5)*.8;
-    this.wobble = Math.random()*Math.PI*2;
-    this.wobbleSpeed = .007+Math.random()*.007;
-    this.age = 0;
+  constructor(x,y,r,color){
+    this.x=x; this.y=y; this.r=r;
+    this.baseR=r; this.color=color;
+    this.vx=(Math.random()-.5)*.8;
+    this.vy=(Math.random()-.5)*.8;
+    this.wobble=Math.random()*Math.PI*2;
+    this.wobbleSpeed=.007+Math.random()*.007;
+    this.age=0;
   }
-
-  update() {
+  update(){
     this.age++;
-    this.wobble += this.wobbleSpeed;
-
-    // ── Temperature: proximity to mouse → speed multiplier ──
-    const dx = this.x - env.mouseX, dy = this.y - env.mouseY;
-    const distToMouse = Math.sqrt(dx*dx + dy*dy);
-    const proximity   = Math.max(0, 1 - distToMouse / (Math.min(W,H)*0.45));
-    const tempEffect  = 0.4 + proximity * 2.2; // 0.4 cold → 2.6 hot
-
-    // ── Light: darkness activates blobs (mold thrives without light) ──
-    const darkBoost = 1 + (1 - env.light) * 2.8;
-
-    // ── Base drift (scaled by temperature + light) ──
-    this.vx += (Math.random()-.5) * 0.04 * tempEffect * darkBoost;
-    this.vy += (Math.random()-.5) * 0.04 * tempEffect * darkBoost;
-    this.vx *= (0.97 - proximity * 0.02); // more active = less damping
-    this.vy *= (0.97 - proximity * 0.02);
-
-    this.x += this.vx + Math.sin(this.wobble) * 0.15 * tempEffect;
-    this.y += this.vy + Math.cos(this.wobble*.75) * 0.15 * tempEffect;
-
-    // ── Humidity: directional growth toward moisture (hyphae extension) ──
-    env.humidPoints.forEach(hp => {
-      const hdx = this.x - hp.x, hdy = this.y - hp.y;
-      const hd  = Math.sqrt(hdx*hdx + hdy*hdy);
-      if (hd < hp.r * 3.5) {
-        const influence = hp.strength * (1 - hd / (hp.r * 3.5));
-        // strong directional pull — hyphae grow toward water source
-        this.vx -= (hdx / (hd+1)) * influence * 0.18;
-        this.vy -= (hdy / (hd+1)) * influence * 0.18;
+    this.wobble+=this.wobbleSpeed;
+    const dx=this.x-env.mouseX, dy=this.y-env.mouseY;
+    const distToMouse=Math.sqrt(dx*dx+dy*dy);
+    const proximity=Math.max(0,1-distToMouse/(Math.min(W,H)*.45));
+    const humidEffect=0.4+proximity*2.2;
+    const darkBoost=1+(1-env.light)*12.0;
+    this.vx+=(Math.random()-.5)*.008*humidEffect*darkBoost;
+    this.vy+=(Math.random()-.5)*.008*humidEffect*darkBoost;
+    this.vx*=(0.92 - (1-env.light)*0.05);
+    this.vy*=(0.92 - (1-env.light)*0.05);
+    this.x+=this.vx+Math.sin(this.wobble)*.04*humidEffect*darkBoost;
+    this.y+=this.vy+Math.cos(this.wobble*.75)*.04*humidEffect*darkBoost;
+    env.humidPoints.forEach(hp=>{
+      const hdx=this.x-hp.x, hdy=this.y-hp.y;
+      const hd=Math.sqrt(hdx*hdx+hdy*hdy);
+      if(hd<hp.r*3.5){
+        const inf=hp.strength*(1-hd/(hp.r*3.5));
+        this.vx-=(hdx/(hd+1))*inf*.18;
+        this.vy-=(hdy/(hd+1))*inf*.18;
       }
     });
-    // radius stays close to base — only very slight swell
-    const targetR = this.baseR * 1.0;
-    this.r += (targetR - this.r) * 0.06;
-
-    // boundary
-    const pad = this.r*.5;
-    if (this.x<pad)     { this.x=pad;     this.vx= Math.abs(this.vx)*.6; }
-    if (this.x>W-pad)   { this.x=W-pad;   this.vx=-Math.abs(this.vx)*.6; }
-    if (this.y<pad)     { this.y=pad;      this.vy= Math.abs(this.vy)*.6; }
-    if (this.y>H-pad)   { this.y=H-pad;   this.vy=-Math.abs(this.vy)*.6; }
-
-    // split if very hot + large, or if dark + large
-    const splitChance = 0.004 * proximity + (1 - env.light) * 0.003;
-    if (this.r > 80 && Math.random() < splitChance) {
-      this.split();
+    // heat: blobs flee from heat (too hot = bad for mold)
+    env.heatPoints.forEach(hp=>{
+      const hdx=this.x-hp.x, hdy=this.y-hp.y;
+      const hd=Math.sqrt(hdx*hdx+hdy*hdy);
+      if(hd<hp.r*4){
+        const inf=hp.strength*(1-hd/(hp.r*4));
+        // flee outward + speed boost
+        this.vx+=(hdx/(hd+1))*inf*.3;
+        this.vy+=(hdy/(hd+1))*inf*.3;
+      }
+    });
+    // repulsion from other blobs
+    for(const other of blobs){
+      if(other===this) continue;
+      const rdx=this.x-other.x, rdy=this.y-other.y;
+      const rd=Math.sqrt(rdx*rdx+rdy*rdy);
+      const minDist=(this.r+other.r)*1.2;
+      if(rd<minDist&&rd>0.1){
+        const force=(minDist-rd)/minDist*0.4;
+        this.vx+=(rdx/rd)*force;
+        this.vy+=(rdy/rd)*force;
+      }
     }
+    this.r+=(this.baseR-this.r)*.06;
+    const pad=this.r*.5;
+    if(this.x<pad){this.x=pad;this.vx=Math.abs(this.vx)*.6;}
+    if(this.x>W-pad){this.x=W-pad;this.vx=-Math.abs(this.vx)*.6;}
+    if(this.y<pad){this.y=pad;this.vy=Math.abs(this.vy)*.6;}
+    if(this.y>H-pad){this.y=H-pad;this.vy=-Math.abs(this.vy)*.6;}
+    const splitChance=.003*proximity+env.mouseHumid*.002;
+    if(this.r>80&&Math.random()<splitChance) this.split();
   }
-
-  split() {
-    const newR = this.r * 0.62;
-    const count = 2+Math.floor(Math.random()*2);
-    for (let i=0; i<count; i++) {
-      const a = (i/count)*Math.PI*2+Math.random()*.5;
-      const b = new Blob(
+  split(){
+    const newR=this.r*.62;
+    const count=2+Math.floor(Math.random()*2);
+    for(let i=0;i<count;i++){
+      const a=(i/count)*Math.PI*2+Math.random()*.5;
+      const b=new Blob(
         this.x+Math.cos(a)*this.r*.4,
         this.y+Math.sin(a)*this.r*.4,
-        newR, this.color
+        newR, nextColor()
       );
-      b.baseR = newR;
-      b.vx = Math.cos(a)*(1.5+Math.random());
-      b.vy = Math.sin(a)*(1.5+Math.random());
+      b.baseR=newR;
+      b.vx=Math.cos(a)*(1.5+Math.random());
+      b.vy=Math.sin(a)*(1.5+Math.random());
       blobs.push(b);
     }
-    this.r = 0; // mark for removal
+    this.r=0;
   }
 }
 
-// ── Render: per-pixel metaball with color blending ──
-const BG = [122,122,122];
+// BG matches site — warm off-white
+const BG=[242,240,235];
 
-function render() {
-  const img  = ctx.createImageData(W, H);
-  const data = img.data;
-
-  for (let py=0; py<sh; py++) {
-    for (let px=0; px<sw; px++) {
-      const wx = px*SCALE, wy = py*SCALE;
-      let totalF=0, wR=0, wG=0, wB=0;
-
-      for (const b of blobs) {
-        const dx=wx-b.x, dy=wy-b.y, d2=dx*dx+dy*dy;
+function render(){
+  if(!W||!H) return;
+  const img=ctx.createImageData(W,H);
+  const data=img.data;
+  for(let py=0;py<sh;py++){
+    for(let px=0;px<sw;px++){
+      const wx=px*SCALE, wy=py*SCALE;
+      let totalF=0,wR=0,wG=0,wB=0;
+      for(const b of blobs){
+        const dx=wx-b.x,dy=wy-b.y,d2=dx*dx+dy*dy;
         const f=(b.r*b.r)/(d2+.001);
-        totalF+=f;
-        wR+=f*b.color[0]; wG+=f*b.color[1]; wB+=f*b.color[2];
+        totalF+=f; wR+=f*b.color[0]; wG+=f*b.color[1]; wB+=f*b.color[2];
       }
-
       let pr,pg,pb;
-      const THRESH = 1.0;
-
-      if (totalF >= THRESH) {
+      const THRESH=1.0;
+      if(totalF>=THRESH){
         pr=Math.min(255,wR/totalF);
         pg=Math.min(255,wG/totalF);
         pb=Math.min(255,wB/totalF);
-      } else if (totalF >= THRESH*.5) {
+      } else if(totalF>=THRESH*.5){
         const t=(totalF-THRESH*.5)/(THRESH*.5);
         const et=t*t*(3-2*t);
         const br=Math.min(255,wR/Math.max(totalF,.001));
@@ -252,141 +880,192 @@ function render() {
       } else {
         pr=BG[0]; pg=BG[1]; pb=BG[2];
       }
-
-      for (let dy=0;dy<SCALE&&wy+dy<H;dy++) {
-        for (let dx=0;dx<SCALE&&wx+dx<W;dx++) {
+      for(let dy=0;dy<SCALE&&wy+dy<H;dy++){
+        for(let dx=0;dx<SCALE&&wx+dx<W;dx++){
           const i=((wy+dy)*W+(wx+dx))*4;
-          data[i]=pr; data[i+1]=pg; data[i+2]=pb; data[i+3]=255;
+          data[i]=pr;data[i+1]=pg;data[i+2]=pb;data[i+3]=255;
         }
       }
     }
   }
   ctx.putImageData(img,0,0);
-
-  // draw humidity circles as subtle glow
-  env.humidPoints.forEach(hp => {
-    const grad = ctx.createRadialGradient(hp.x,hp.y,0,hp.x,hp.y,hp.r*2.5);
-    grad.addColorStop(0,  `rgba(180,255,200,${hp.strength*.12})`);
-    grad.addColorStop(1,  'rgba(180,255,200,0)');
+  env.humidPoints.forEach(hp=>{
+    const grad=ctx.createRadialGradient(hp.x,hp.y,0,hp.x,hp.y,hp.r*2.5);
+    grad.addColorStop(0,`rgba(100,160,120,${hp.strength*.1})`);
+    grad.addColorStop(1,'rgba(100,160,120,0)');
     ctx.beginPath();
     ctx.arc(hp.x,hp.y,hp.r*2.5,0,Math.PI*2);
-    ctx.fillStyle=grad;
-    ctx.fill();
+    ctx.fillStyle=grad; ctx.fill();
+  });
+  // orange heat flashes — click
+  clickFlashes.forEach(cf=>{
+    const r = 180 * cf.strength;
+    const grad = ctx.createRadialGradient(cf.x,cf.y,0,cf.x,cf.y,r);
+    grad.addColorStop(0, `rgba(255,120,40,${cf.strength*0.55})`);
+    grad.addColorStop(0.4, `rgba(255,160,60,${cf.strength*0.25})`);
+    grad.addColorStop(1, 'rgba(255,120,40,0)');
+    ctx.beginPath(); ctx.arc(cf.x,cf.y,r,0,Math.PI*2);
+    ctx.fillStyle=grad; ctx.fill();
   });
 
-  // draw temperature aura around mouse
-  const tempGrad = ctx.createRadialGradient(env.mouseX,env.mouseY,0,env.mouseX,env.mouseY,Math.min(W,H)*.3);
-  tempGrad.addColorStop(0,  `rgba(255,140,60,${env.temp*.08})`);
-  tempGrad.addColorStop(1,  'rgba(255,140,60,0)');
-  ctx.beginPath();
-  ctx.arc(env.mouseX,env.mouseY,Math.min(W,H)*.3,0,Math.PI*2);
-  ctx.fillStyle=tempGrad;
-  ctx.fill();
+  // blue/green humid flashes — cmd
+  humidFlashes.forEach(cf=>{
+    const r = 160 * cf.strength;
+    const grad = ctx.createRadialGradient(cf.x,cf.y,0,cf.x,cf.y,r);
+    grad.addColorStop(0, `rgba(80,200,180,${cf.strength*0.45})`);
+    grad.addColorStop(0.4, `rgba(60,180,140,${cf.strength*0.2})`);
+    grad.addColorStop(1, 'rgba(80,200,180,0)');
+    ctx.beginPath(); ctx.arc(cf.x,cf.y,r,0,Math.PI*2);
+    ctx.fillStyle=grad; ctx.fill();
+  });
+
+  // darkness overlay — space key
+  const darkness = 1 - env.light;
+  if (darkness > 0.01) {
+    ctx.fillStyle = `rgba(10,8,6,${darkness * 0.82})`;
+    ctx.fillRect(0, 0, W, H);
+  }
 }
 
-// ── Mouse events ──
-document.addEventListener('mousemove', e => {
-  const dx = e.clientX - prevX, dy = e.clientY - prevY;
-  const spd = Math.sqrt(dx*dx+dy*dy);
-
-  env.mouseX = e.clientX; env.mouseY = e.clientY;
-  env.speedX = dx; env.speedY = dy;
-
-  // smooth wind
-  // (wind removed — light is now the second variable)
-
+document.addEventListener('mousemove', e=>{
+  const dx=e.clientX-prevX, dy=e.clientY-prevY;
+  env.mouseX=e.clientX; env.mouseY=e.clientY;
+  env.speedX=dx; env.speedY=dy;
   prevX=e.clientX; prevY=e.clientY;
-
-  // cursor heat
-  cursorEl.style.left = e.clientX+'px';
-  cursorEl.style.top  = e.clientY+'px';
+  cursorEl.style.left=e.clientX+'px';
+  cursorEl.style.top=e.clientY+'px';
 });
 
-document.addEventListener('click', e => {
-  if (e.target.id==='reset-btn') return;
+let clickFlashes  = [];
+let humidFlashes  = [];
 
-  // humidity burst at click
-  env.humidPoints.push({
-    x:e.clientX, y:e.clientY,
-    r:60+Math.random()*40,
-    strength:1.0,
-  });
+let mouseDown = false;
 
-  // also spawn a small blob at click
-  const color = nextColor();
-  const r = 18+Math.random()*28;
-  blobs.push(new Blob(e.clientX, e.clientY, r, color));
+document.addEventListener('mousedown', e=>{
+  if(e.target.id==='reset-btn') return;
+  const activePage=document.querySelector('.page.active');
+  if(!activePage||activePage.id!=='page-experimentation') return;
+  if(e.metaKey||e.ctrlKey) return; // cmd is humidity
+  mouseDown = true;
+});
 
-  // satellite blobs
-  const n = 1+Math.floor(Math.random()*3);
-  for (let i=0;i<n;i++) {
-    const a=(i/n)*Math.PI*2+Math.random();
-    const d=r*(1+Math.random()*.8);
-    const sr=r*(.2+Math.random()*.4);
-    const b=new Blob(e.clientX+Math.cos(a)*d, e.clientY+Math.sin(a)*d, sr, color);
-    b.baseR=sr;
-    blobs.push(b);
+document.addEventListener('mouseup', ()=>{ mouseDown = false; });
+
+document.addEventListener('click', e=>{
+  if(e.target.id==='reset-btn') return;
+  const activePage=document.querySelector('.page.active');
+  if(!activePage||activePage.id!=='page-experimentation') return;
+  // cmd/ctrl + click → humidity
+  if(e.metaKey||e.ctrlKey) {
+    humidFlashes.push({ x:e.clientX, y:e.clientY, strength:1.0 });
+    env.humidPoints.push({x:e.clientX,y:e.clientY,r:60+Math.random()*40,strength:1.0});
   }
 });
 
-window.resetAll = () => {
-  blobs=[]; env.humidPoints=[]; colorIdx=0;
-  env.humid=0; env.temp=0; env.wind=0;
+// ── Natural budding: environment-driven reproduction ──
+function tryBud() {
+  if (blobs.length === 0) return;
+  if (blobs.length > 20) return;
+
+  const base       = 0.0007;
+  const humidBoost = env.humid * 0.008;
+  const chance     = base + humidBoost;
+
+  if (Math.random() < chance) {
+    let spawnX, spawnY;
+    const r = Math.random();
+
+    if (r < 0.4 && env.humidPoints.length > 0) {
+      // 40% — near a humidity point (new territory)
+      const total = env.humidPoints.reduce((s,hp)=>s+hp.strength,0);
+      let pick = Math.random()*total, chosen = env.humidPoints[0];
+      for(const hp of env.humidPoints){ pick-=hp.strength; if(pick<=0){chosen=hp;break;} }
+      const a = Math.random()*Math.PI*2;
+      const d = 20 + Math.random()*chosen.r*1.5;
+      spawnX = chosen.x + Math.cos(a)*d;
+      spawnY = chosen.y + Math.sin(a)*d;
+    } else if (r < 0.75) {
+      // 35% — attached to existing blob (merges/clusters)
+      const parent = blobs[Math.floor(Math.random()*blobs.length)];
+      const a = Math.random()*Math.PI*2;
+      const d = parent.r * (0.5 + Math.random()*0.8);
+      spawnX = parent.x + Math.cos(a)*d;
+      spawnY = parent.y + Math.sin(a)*d;
+    } else {
+      // 25% — completely random spot
+      spawnX = 40 + Math.random()*(W-80);
+      spawnY = 40 + Math.random()*(H-80);
+    }
+
+    const newR = 8 + Math.random() * 28;
+    const bud  = new Blob(spawnX, spawnY, 3, nextColor());
+    bud.baseR  = newR;
+    bud.vx     = (Math.random()-.5)*0.8;
+    bud.vy     = (Math.random()-.5)*0.8;
+    blobs.push(bud);
+  }
+}
+
+window.resetAll=()=>{
+  blobs=[new Blob(W/2, H/2, 28, nextColor())];
+  colorIdx=1;
+  env.humidPoints=[]; env.heatPoints=[];
+  clickFlashes=[]; humidFlashes=[];
+  env.humid=0; env.mouseHumid=0; env.wind=0;
 };
 
-// ── Loop ──
 let frame=0;
-function loop() {
+function loop(){
   frame++;
-
-  // light update — space = darkness
-  env.lightTarget = spaceDown ? 0 : 1;
-  env.light += (env.lightTarget - env.light) * 0.06;
-  env.wind = 1 - env.light; // reuse wind bar for light indicator
-
-  // update humidity points (decay strength)
-  env.humidPoints = env.humidPoints
-    .map(hp=>({...hp, strength:hp.strength*.992}))
+  env.lightTarget=spaceDown?0:1;
+  env.light+=(env.lightTarget-env.light)*.06;
+  env.wind=1-env.light;
+  // continuous heat while mouse held
+  if(mouseDown) {
+    clickFlashes.push({ x:env.mouseX, y:env.mouseY, strength:0.6 });
+    env.heatPoints.push({ x:env.mouseX, y:env.mouseY, strength:0.8 });
+  }
+  // continuous humidity while cmd+mouse held
+  if(mouseDown && cmdDown) {
+    humidFlashes.push({ x:env.mouseX, y:env.mouseY, strength:0.5 });
+    env.humidPoints.push({ x:env.mouseX, y:env.mouseY, r:60+Math.random()*20, strength:0.7 });
+  }
+  clickFlashes = clickFlashes.map(cf=>({...cf, strength: cf.strength * 0.88})).filter(cf=>cf.strength > 0.01);
+  humidFlashes = humidFlashes.map(cf=>({...cf, strength: cf.strength * 0.88})).filter(cf=>cf.strength > 0.01);
+  env.heatPoints = env.heatPoints.map(hp=>({...hp,strength:hp.strength*.93,r:hp.r+2})).filter(hp=>hp.strength>.02);
+  env.humidPoints=env.humidPoints
+    .map(hp=>({...hp,strength:hp.strength*.992}))
     .filter(hp=>hp.strength>.02);
-  env.humid = Math.min(1, env.humidPoints.reduce((s,hp)=>s+hp.strength,0)/3);
-
-  // update temp (based on blobs near mouse)
-  const nearCount = blobs.filter(b=>{
+  env.humid=Math.min(1,env.humidPoints.reduce((s,hp)=>s+hp.strength,0)/3);
+  // mouse proximity = moisture source
+  const minDist = blobs.reduce((mn,b)=>{
+    const dx=b.x-env.mouseX,dy=b.y-env.mouseY;
+    return Math.min(mn,Math.sqrt(dx*dx+dy*dy));
+  },Infinity);
+  const nearCount=blobs.filter(b=>{
     const dx=b.x-env.mouseX,dy=b.y-env.mouseY;
     return Math.sqrt(dx*dx+dy*dy)<Math.min(W,H)*.35;
   }).length;
-  env.temp = Math.min(1, nearCount/8 + (1-Math.min(1,
-    blobs.reduce((mn,b)=>{
-      const dx=b.x-env.mouseX,dy=b.y-env.mouseY;
-      return Math.min(mn,Math.sqrt(dx*dx+dy*dy));
-    }, Infinity)/(Math.min(W,H)*.45)
-  ))*.6);
-
-  // update blobs
-  blobs = blobs.filter(b=>b.r>2);
+  const heat = Math.min(1, env.heatPoints.reduce((s,hp)=>s+hp.strength,0)/3);
+  blobs=blobs.filter(b=>b.r>2);
   blobs.forEach(b=>b.update());
-
+  tryBud();
   render();
-
-  // HUD
-  barTemp.style.width  = (env.temp*100)+'%';
-  barWind.style.width  = ((1-env.light)*100)+'%';
-  barHumid.style.width = (env.humid*100)+'%';
-
-  // cursor visual
-  if (env.temp>.5) cursorEl.classList.add('hot');
+  barTemp.style.width=(heat*100)+'%';
+  barWind.style.width=((1-env.light)*100)+'%';
+  barHumid.style.width=(env.humid*100)+'%';
+  if(heat>.3) cursorEl.classList.add('hot');
   else cursorEl.classList.remove('hot');
-
   requestAnimationFrame(loop);
 }
 
+// init
+resizeCanvas();
+blobs = [new Blob(W/2, H/2, 28, nextColor())];
+document.body.focus();
 loop();
 
-window.addEventListener('resize',()=>{
-  W=canvas.width=window.innerWidth;
-  H=canvas.height=window.innerHeight;
-  sw=Math.ceil(W/SCALE); sh=Math.ceil(H/SCALE);
-});
+window.addEventListener('resize', resizeCanvas);
 </script>
 </body>
 </html>
